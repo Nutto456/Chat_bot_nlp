@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Restaurant Assistant Chatbot – Smarter v2.5 (TH/EN)</title>
+  <link rel="icon" href="data:," />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .nice-scrollbar::-webkit-scrollbar{width:8px;height:8px}
+    .nice-scrollbar::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:8px}
+    .nice-scrollbar{scrollbar-width:thin;scrollbar-color:#cbd5e1 transparent}
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 antialiased">
+  <div class="min-h-screen max-w-4xl mx-auto p-4 md:p-8">
+    <header class="mb-4">
+      <div class="rounded-2xl bg-gradient-to-r from-indigo-500 via-sky-500 to-cyan-400 text-white p-6 shadow-lg flex items-start justify-between gap-4">
+        <div>
+          <h1 class="text-2xl md:text-3xl font-semibold">🍜 Restaurant Assistant Chatbot – <span class="font-bold">Smarter v2.5</span></h1>
+          <p class="opacity-95 mt-1">Lexical • Syntactic • Semantic • Pagination • Recommendation • Slot TTL • Thai Number • <b>Dish Q&amp;A</b></p>
+          <div class="mt-3 flex flex-wrap items-center gap-2 text-sm">
+            <span class="bg-white/15 px-2.5 py-1 rounded-full">TH/EN</span>
+            <span class="bg-white/15 px-2.5 py-1 rounded-full">Context &amp; Slot TTL</span>
+            <span class="bg-white/15 px-2.5 py-1 rounded-full">Regex + Light Semantics</span>
+          </div>
+        </div>
+        <div class="flex items-center gap-2">
+          <label for="lang" class="text-sm opacity-90">ภาษา / Language</label>
+          <select id="lang" class="text-sm rounded-lg px-2 py-1 text-slate-800 bg-white/90">
+            <option value="th">ไทย (TH)</option>
+            <option value="en">English (EN)</option>
+          </select>
+        </div>
+      </div>
+    </header>
+
+    <main class="grid md:grid-cols-3 gap-4">
+      <section class="md:col-span-2">
+        <div class="bg-white rounded-2xl shadow-lg border border-slate-200">
+          <div class="flex items-center justify-between px-4 py-3 border-b border-slate-200">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-sky-400 grid place-items-center text-white">🤖</div>
+              <div>
+                <div class="font-semibold leading-tight">บอทร้านอาหาร (ฉลาดขึ้น)</div>
+                <div class="text-xs text-slate-500">พิมพ์ “ช่วยด้วย / help” เพื่อดูเมนูลัด</div>
+              </div>
+            </div>
+            <div class="flex items-center gap-2">
+              <button id="btnClear" class="text-xs px-3 py-1.5 rounded-full bg-slate-100 hover:bg-slate-200">ล้างแชท</button>
+              <button id="btnHelp" class="text-xs px-3 py-1.5 rounded-full bg-indigo-50 text-indigo-700 hover:bg-indigo-100">เมนูช่วยเหลือ</button>
+            </div>
+          </div>
+
+          <div id="chat" class="h-[56vh] md:h-[62vh] overflow-y-auto nice-scrollbar p-4 space-y-3"></div>
+
+          <div class="border-t border-slate-200 p-3">
+            <div class="flex items-end gap-2">
+              <div class="flex-1">
+                <textarea id="input" rows="2" placeholder="เช่น ‘เมนูแนะนำ/แนะนำหน่อย’, ‘ของคาว’, ‘ของหวาน 60’, ‘มีส้มตำไหม’, ‘ผัดไทยเผ็ดไหม’, ‘ล้างงบ’ ..." class="w-full resize-none rounded-xl border-slate-300 focus:border-indigo-400 focus:ring-indigo-300"></textarea>
+                <div id="quickbar" class="flex flex-wrap gap-2 mt-2 text-sm"></div>
+              </div>
+              <button id="send" class="px-4 py-2 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 active:scale-[.99]">ส่ง</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <aside class="md:col-span-1 space-y-4">
+        <div class="bg-white rounded-2xl shadow-lg border border-slate-200 p-4">
+          <h2 class="font-semibold mb-2">🧪 Metrics</h2>
+          <ul class="text-sm space-y-1" id="metrics">
+            <li>คำถามทั้งหมด: <b id="m_total">0</b></li>
+            <li>ตอบสำเร็จ: <b id="m_ok">0</b></li>
+            <li>Fallback: <b id="m_fb">0</b></li>
+            <li>Coverage ≈ <b id="m_cov">0%</b></li>
+          </ul>
+        </div>
+
+        <div class="bg-white rounded-2xl shadow-lg border border-slate-200 p-4">
+          <h2 class="font-semibold mb-2">ℹ️ ข้อมูลร้าน</h2>
+          <div class="text-sm leading-6" id="storeInfo"></div>
+          <div class="mt-3 flex flex-wrap gap-2">
+            <a id="mapsLink" target="_blank" class="text-xs px-3 py-1.5 rounded-full bg-slate-100 hover:bg-slate-200">เปิดแผนที่</a>
+            <button id="btnNavigate" class="text-xs px-3 py-1.5 rounded-full bg-emerald-50 text-emerald-700 hover:bg-emerald-100">นำทางจากตำแหน่งฉัน</button>
+            <button id="btnShowMenu" class="text-xs px-3 py-1.5 rounded-full bg-slate-100 hover:bg-slate-200">ดูเมนูทั้งหมด</button>
+          </div>
+        </div>
+      </aside>
+    </main>
+  </div>
+
+  <script>
+    // ===== Config =====
+    const PAGE_SIZE = 6;
+    const TTL = { budget:3, taste:3, category:3, veg:10 };
+
+    // ===== Data =====
+    const STORE = {
+      meta: {
+        name: "ครัวริมทาง",
+        hours: "เปิดทุกวัน 10:00–20:00 น.",
+        phone: "081-234-5678",
+        address: "ซอย A ถนน B ติด C แขวง/เขตตัวอย่าง กรุงเทพมหานคร",
+        mapsUrl: "https://maps.google.com/?q=13.7563,100.5018",
+        lat: 13.7563, lng: 100.5018,
+      },
+      promos: [
+        { title: "ส่วนลดนักศึกษา 10%", desc: "ทุกวัน จ.-พฤ." },
+        { title: "Member Stamp 8 ฟรี 1", desc: "รับแสตมป์ทุกใบเสร็จ" },
+      ],
+      menu: [
+        { name: "ต้มยำกุ้ง", price: 120, category: "อาหาร", spicy: "เผ็ด", veg: false },
+        { name: "ผัดไทยกุ้งสด", price: 80, category: "อาหาร", spicy: "กลาง", veg: false },
+        { name: "ข้าวผัดหมู", price: 60, category: "อาหาร", spicy: "ไม่เผ็ด", veg: false },
+        { name: "ส้มตำไทย", price: 60, category: "อาหาร", spicy: "เผ็ด", veg: false },
+        { name: "แกงเขียวหวานไก่", price: 95, category: "อาหาร", spicy: "กลาง", veg: false },
+        { name: "ผัดกะเพราเต้าหู้", price: 65, category: "อาหาร", spicy: "กลาง", veg: true },
+        { name: "ไอศกรีมวานิลลา", price: 45, category: "ของหวาน", spicy: "ไม่เผ็ด", veg: true },
+        { name: "ชานมเย็น", price: 35, category: "เครื่องดื่ม", spicy: "ไม่เผ็ด", veg: true },
+        { name: "ชาเขียวเย็น", price: 35, category: "เครื่องดื่ม", spicy: "ไม่เผ็ด", veg: true },
+      ],
+    };
+
+    // ===== Helpers =====
+    function normalize(s){ return (s||'').toLowerCase().trim(); }
+    function stripSpaces(s){ return (s||'').replace(/\s+/g,''); }
+    const TH_UNITS = {'ศูนย์':0,'หนึ่ง':1,'นึง':1,'เอ็ด':1,'สอง':2,'ยี่':2,'สาม':3,'สี่':4,'ห้า':5,'หก':6,'เจ็ด':7,'แปด':8,'เก้า':9};
+    function thaiTextToNumber(text){
+      text = stripSpaces(text);
+      if (/ร้อย/.test(text)) return 100;
+      const m = text.match(/((?:ยี่|หนึ่ง|นึง|สอง|สาม|สี่|ห้า|หก|เจ็ด|แปด|เก้า)?สิบ)(?:หนึ่ง|นึง|สอง|สาม|สี่|ห้า|หก|เจ็ด|แปด|เก้า)?/);
+      if (m){
+        const tensWord = m[1].replace('หนึ่งสิบ','สิบ').replace('นึงสิบ','สิบ');
+        let tens = 0;
+        if (tensWord==='สิบ') tens = 10; else {
+          const key = tensWord.replace('สิบ','');
+          tens = (key==='ยี่'?2:TH_UNITS[key]||0)*10;
+        }
+        const unitMatch = (text.match(/สิบ(หนึ่ง|นึง|สอง|สาม|สี่|ห้า|หก|เจ็ด|แปด|เก้า)$/) || [])[1];
+        const unit = unitMatch ? (unitMatch==='นึง'?1:TH_UNITS[unitMatch]) : 0;
+        return tens + unit;
+      }
+      if (TH_UNITS[text]!=null) return TH_UNITS[text];
+      return null;
+    }
+    function parseBudget(raw){
+      const map={'๐':0,'๑':1,'๒':2,'๓':3,'๔':4,'๕':5,'๖':6,'๗':7,'๘':8,'๙':9};
+      const text = raw.replace(/[๐-๙]/g,d=>map[d]);
+      const d = text.match(/\d{2,4}/); if (d) return parseInt(d[0],10);
+      const ctx = raw.match(/(ร้อย|ยี่สิบ(?:[หนึ่งนึงสองสามสี่ห้าหกเจ็ดแปดเก้า])?|[หนึ่งนึงสองสามสี่ห้าหกเจ็ดแปดเก้า]สิบ(?:[หนึ่งนึงสองสามสี่ห้าหกเจ็ดแปดเก้า])?)/);
+      if (ctx){ const val = thaiTextToNumber(ctx[1]); if (val!=null) return val; }
+      return null;
+    }
+    function has(pats, t){ return pats.some(p=>p.test(t)); }
+    function findItemByName(q){
+      const t = stripSpaces(q);
+      return STORE.menu.find(m=>stripSpaces(m.name).includes(t) || t.includes(stripSpaces(m.name)));
+    }
+
+    // ===== Slots parsing =====
+    function parseSlots(text){
+      const t = normalize(text);
+      const slots = {excludeCategories:[]};
+      if (/(ไม่เผ็ด|กินเผ็ดไม่ได้|เผ็ดน้อย|mild)/i.test(t)) slots.taste = 'ไม่เผ็ด';
+      else if (/(ปานกลาง|กลาง|medium)/i.test(t)) slots.taste = 'กลาง';
+      else if (/(เผ็ด|จัด|spicy|hot|ของเผ็ด)/i.test(t)) slots.taste = 'เผ็ด';
+
+      if (/(ของหวาน|dessert)/i.test(t)) slots.category = 'ของหวาน';
+      else if (/(เครื่องดื่ม|drink|beverage)/i.test(t)) slots.category = 'เครื่องดื่ม';
+      else if (/(ของคาว|อาหารคาว|เมนูคาว|คาว ๆ|คาวๆ)/i.test(t)) slots.category = 'อาหาร';
+
+      if (/(ไม่เอาของหวาน|no dessert)/i.test(t)) slots.excludeCategories.push('ของหวาน');
+      if (/(ไม่เอาเครื่องดื่ม|no drinks?)/i.test(t)) slots.excludeCategories.push('เครื่องดื่ม');
+
+      if (/(เจ|มังสวิ|veg|vegetarian|ไม่กินเนื้อ)/i.test(t)) slots.veg = true;
+      if (/(ไม่เอาผัก|no veg|ใส่ผักไหม|ไม่ต้องผัก)/i.test(t)) slots.veg = false;
+
+      const b = parseBudget(t); if (b!=null) slots.budget=b;
+      return slots;
+    }
+
+    // ===== Context =====
+    const CTX = { 
+      last_intent:null, 
+      slots:{ budget:null, taste:null, category:null, veg:null, excludeCategories:[] },
+      ttl:{ budget:0, taste:0, category:0, veg:0 },
+      filtered:[], page:0 
+    };
+    function applyTTL(parsed){
+      ['budget','taste','category','veg'].forEach(k=>{
+        if (parsed[k]!=null){ CTX.ttl[k]=TTL[k]; CTX.slots[k]=parsed[k]; }
+        else { if (CTX.ttl[k]>0){ CTX.ttl[k]--; if (CTX.ttl[k]===0){ CTX.slots[k]=null; } } }
+      });
+      CTX.slots.excludeCategories = (parsed.excludeCategories && parsed.excludeCategories.length) ? parsed.excludeCategories : [];
+    }
+
+    // ===== Intent Matching =====
+    function matchIntent(text){
+      const t = normalize(text);
+      if (has([/(สวัสดี|หวัดดี|ดีครับ+|ดีค่ะ+|ดีคับ|ดีคะ|ดีจ้า|hello|hi|hey)/i], t)) return 'greet';
+      if (has([/(ช่วยด้วย|help|เมนูช่วยเหลือ)/i], t)) return 'help';
+      if (has([/(เปิด.*(เวลา|ตอนไหน)|เวลา.?เปิด|เวลาทำการ|ปิด.*(กี่โมง|ตอนไหน)|ร้าน.*(เปิด|ปิด).*เวลาไหน)/i], t)) return 'ask_hours';
+      if (has([/(อยู่ไหน|แผนที่|ที่อยู่|ทางไป|ไปยังไง|ไปร้านยังไง|ไป.*ยังไง|ไปทางไหน|เส้นทาง|map|where|address|location|พิกัด(ร้าน)?|โลเค(ชัน|ชั่น))/i], t)) return 'ask_location';
+      if (has([/(นำทาง|direction|navigate)/i], t)) return 'navigate';
+      if (has([/(ติดต่อ|โทร|เบอร์|contact|phone|call|number)/i], t)) return 'ask_contact';
+      if (has([/(โปร(โมชัน|โมชั่น)?|ส่วนลด|promo|promotion|discount|deal|coupon)/i], t)) return 'ask_promo';
+      if (has([/(ชื่อร้านอะไร|ชื่อร้าน|ร้านชื่ออะไร)/i], t)) return 'ask_name';
+      if (has([/(จองคิว|จองโต๊ะ|จองได้ไหม|จองทางไหน|จองยังไง|reserve|reservation|book( a)? table)/i], t)) return 'ask_booking';
+      if (has([/(เมนูแนะนำ|มีเมนูอะไรแนะนำ|แนะนำเมนู|แนะนำอะไรดี|มีอะไรแนะนำ|recommended|what do you recommend|กินอะไรดี|ขอแนะนำ|แนะนำหน่อย|ช่วยแนะนำ)/i], t)) return 'recommend';
+      if (has([/(เมนูทั้งหมด|ทั้งหมด|all menu|show all|everything)/i], t)) return 'show_all';
+      if (has([/(มีอะไรกิน(บ้าง|มั่ง|มั้ง)?|มีอะไร(กิน)?บ้าง|หาอะไรกิน|อยากกินอะไรดี|เมนู|แนะนำเมนู|อยากกิน|อาหาร|อาหารอะไร|มีเมนูอะไร|menu|recommend|dishes|ของคาว|ของหวาน|เครื่องดื่ม)/i], t)) return 'ask_menu';
+      if (has([/(ราคา|กี่บาท|งบ|ไม่เกิน|เท่าไหร่|price|how much|budget|under)/i], t)) return 'ask_price';
+      if (has([/(มีอย่างอื่นอีกไหม|อย่างอื่น|อื่นๆ|อื่น ๆ|more|more options|something else|แนะนำเพิ่ม|หน้าต่อไป|ต่อไป|ถัดไป|next( page)?|ไปหน้า(ถัดไป|ต่อไป)(เลย)?|ไปหน้าต่อไป(เลย)?)/i], t)) return 'more';
+      if (has([/(ทำไม|why|งง|เอ้า)/i], t)) return 'explain';
+      if (has([/(ล้างเงื่อนไข|เริ่มใหม่|reset|clear)/i], t)) return 'clear_filters';
+      if (has([/(ล้างงบ|ไม่จำงบ|ลืมงบ|ไม่เอางบ|no budget)/i], t)) return 'clear_budget';
+      if (has([/\b(ครับ|ค่ะ)\b/i, /(ขอบคุณ(ครับ|ค่ะ)?|รับทราบ|โอเค|ok|okay|thanks?|thx|ได้(ครับ|ค่ะ)|ครับผม|ค้าบ+|คับ|เคๆ)/i], t)) return 'ack';
+      if (/(เผ็ด|ไม่เผ็ด|ของหวาน|dessert|เครื่องดื่ม|drink|veg|vegetarian|ของคาว)/i.test(t) || /\d{2,4}/.test(t)) return 'ask_menu';
+      return 'unknown';
+    }
+
+    // ===== Menu filtering & helpers =====
+    function findMenu({budget=null,taste=null,category=null,veg=null,excludeCategories=[]}){
+      let items=[...STORE.menu];
+      if (budget!=null) items=items.filter(m=>m.price<=budget);
+      if (taste){
+        if (taste==='หวาน') items=items.filter(m=>m.category==='ของหวาน');
+        else items=items.filter(m=>m.spicy===taste);
+      }
+      if (category) items=items.filter(m=>m.category===category);
+      if (veg===true) items=items.filter(m=>m.veg);
+      if (veg===false) items=items.filter(m=>!m.veg);
+      if (excludeCategories.length) items=items.filter(m=>!excludeCategories.includes(m.category));
+      return items;
+    }
+    function cheapestFor({taste=null,category=null,veg=null}){
+      const items = findMenu({budget:null,taste,category,veg});
+      if (!items.length) return null;
+      const sorted=[...items].sort((a,b)=>a.price-b.price);
+      return sorted[0];
+    }
+    function pageItems(arr, page=0){ const start = page*PAGE_SIZE; return arr.slice(start, start+PAGE_SIZE); }
+    function formatMenu(items, prefix=''){
+      if (!items.length) return 'ยังหาเมนูที่ตรงเงื่อนไขไม่เจอครับ ลองระบุ “เผ็ด/ไม่เผ็ด/กลาง”, “ของหวาน/ของคาว/เครื่องดื่ม”, หรือ “ล้างงบ”';
+      const top=items.map(m=>`• ${m.name} – ${m.price} บาท`).join('<br>');
+      return prefix+top+(items.length>=PAGE_SIZE?'<br><span class="text-xs text-slate-500">พิมพ์: "ไปหน้าต่อไป" เพื่อดูเพิ่ม</span>':'');
+    }
+    function suggestAlternatives(reasonMsg=''){
+      const s = CTX.slots;
+      const base = findMenu({budget:s.budget, category:s.category, veg:s.veg, excludeCategories:s.excludeCategories});
+      const alt = base.filter(m=>!CTX.filtered.includes(m)).slice(0,PAGE_SIZE);
+      if (alt.length){
+        const pref=(reasonMsg? reasonMsg+'<br>':'')+'ตัวเลือกใกล้เคียง (ผ่อนเงื่อนไขรสชาติ):<br>';
+        return formatMenu(alt, pref);
+      }
+      const cheapest = [...STORE.menu].sort((a,b)=>a.price-b.price).slice(0,PAGE_SIZE);
+      return formatMenu(cheapest, (reasonMsg? reasonMsg+'<br>':'')+'แนะนำยอดนิยมราคาดี:<br>');
+    }
+
+    // ===== Recommendation =====
+    function doRecommend(inputNow){
+      const now = parseSlots(inputNow);
+      const params = {
+        budget: (now.budget!=null ? now.budget : null),
+        taste: (now.taste ? now.taste : null),
+        category: (now.category ? now.category : null),
+        veg: (now.veg!=null ? now.veg : CTX.slots.veg)
+      };
+      let pool = findMenu(params);
+      if (!pool.length) pool = findMenu({budget:params.budget, category:params.category, veg:params.veg});
+      if (!pool.length) pool = [...STORE.menu];
+      const by = (key,val)=>pool.find(m=>m[key]===val);
+      const picks = []; const add = m => { if (m && !picks.includes(m)) picks.push(m); };
+      add(by('spicy','เผ็ด')); add(by('spicy','กลาง')); add(by('spicy','ไม่เผ็ด'));
+      add(pool.find(m=>m.category==='ของหวาน')); add(pool.find(m=>m.category==='เครื่องดื่ม')); add(pool.find(m=>m.veg===true));
+      for (const m of pool){ if (picks.length>=PAGE_SIZE) break; add(m); }
+      CTX.filtered = picks; CTX.page = 0;
+      return formatMenu(CTX.filtered, 'เมนูแนะนำวันนี้:<br>');
+    }
+
+    // ===== Budget prompting =====
+    function shouldAskBudget(){
+      const temp = findMenu({budget:null, taste:CTX.slots.taste, category:CTX.slots.category, veg:CTX.slots.veg, excludeCategories:CTX.slots.excludeCategories});
+      return temp.length>PAGE_SIZE;
+    }
+
+    // ===== Responders =====
+    const RESP = {
+      greet: ()=>'สวัสดีครับ/ค่ะ ต้องการให้ช่วยอะไรดี? (พิมพ์ “ช่วยด้วย” เพื่อดูเมนู)',
+      help: ()=>'ฉันตอบได้: เวลาเปิด-ปิด, แผนที่/พิกัด, เมนู/ราคา (เผ็ด/ไม่เผ็ด/เจ/งบ), โปรโมชัน, เมนูทั้งหมด, เมนูแนะนำ, นำทาง, จองคิว, ล้างเงื่อนไข/ล้างงบ, “มี X ไหม”, “X เผ็ดไหม”, และ "ไปหน้าต่อไป"',
+      ask_hours: ()=> STORE.meta.hours,
+      ask_location: ()=> `ร้านอยู่ที่ ${STORE.meta.address}<br>พิกัด: ${STORE.meta.lat.toFixed(4)}, ${STORE.meta.lng.toFixed(4)}<br>แผนที่: <a class="underline" target="_blank" href="${STORE.meta.mapsUrl}">เปิดลิงก์</a><br><button onclick="startNav()" class="mt-2 text-xs px-3 py-1.5 rounded-full bg-emerald-50 text-emerald-700 hover:bg-emerald-100">นำทางจากตำแหน่งฉัน</button>`,
+      ask_contact: ()=> `ติดต่อร้านได้ที่ ${STORE.meta.phone}`,
+      ask_promo: ()=> STORE.promos.length? STORE.promos.map(p=>`• ${p.title} – ${p.desc}`).join('<br>') : 'ตอนนี้ยังไม่มีโปรโมชัน',
+      navigate: ()=> startNav(true),
+      ask_name: ()=> `ชื่อร้านของเรา: <b>${STORE.meta.name}</b>`,
+      ask_booking: ()=> `ตอนนี้ยังไม่รองรับการจองคิวออนไลน์ครับ/ค่ะ สามารถโทรที่ <b>${STORE.meta.phone}</b> เพื่อจองโต๊ะได้`,
+      explain: ()=>{
+        const s = CTX.slots;
+        const parts = [
+          (s.budget!=null? `งบ ≤ ${s.budget}`:''),
+          (s.taste? `รส: ${s.taste}`:''),
+          (s.category? `ประเภท: ${s.category}`:''),
+          (s.veg===true? `มังสวิรัติ`:''),
+          (s.veg===false? `ไม่มังสวิรัติ`:'')
+        ].filter(Boolean);
+        const msg = parts.length? `ตอนนี้ใช้เงื่อนไข (${parts.join(' • ')}) เลยเจอรายการจำกัดครับ/ค่ะ`:'ยังไม่มีการตั้งเงื่อนไข';
+        return msg + '<br>ถ้าต้องการตัวเลือกเพิ่ม ลองพิมพ์: "ล้างงบ" หรือ "ล้างเงื่อนไข" หรือใช้ "เมนูแนะนำ"';
+      },
+      clear_filters: ()=>{ CTX.slots={ budget:null, taste:null, category:null, veg:null, excludeCategories:[] }; CTX.ttl={budget:0,taste:0,category:0,veg:0}; CTX.filtered=[]; CTX.page=0; return 'ล้างเงื่อนไขเรียบร้อยครับ/ค่ะ 👍'; },
+      clear_budget: ()=>{ CTX.slots.budget=null; CTX.ttl.budget=0; return 'ล้างงบเรียบร้อยครับ/ค่ะ (จะไม่จำงบเดิมต่อไป)'; },
+      show_all: ()=>{ CTX.last_intent='ask_menu'; CTX.page=0; CTX.filtered=[...STORE.menu]; const page=pageItems(CTX.filtered,0); return formatMenu(page,'เมนูทั้งหมด (หน้า 1):<br>'); },
+      ack: ()=> 'ยินดีครับ/ค่ะ 😊 สนใจดู "เมนูแนะนำ" หรือ "เมนูทั้งหมด" ไหม',
+    };
+
+    // ===== Navigation =====
+    function startNav(silent){
+      if (silent===true){ setTimeout(()=>startNav(),0); return 'กำลังเปิดการนำทาง...'; }
+      if (!('geolocation' in navigator)){ bot('อุปกรณ์นี้ไม่รองรับการระบุตำแหน่ง'); return 'geolocation_not_supported'; }
+      navigator.geolocation.getCurrentPosition(pos=>{
+        const origin = `${pos.coords.latitude},${pos.coords.longitude}`;
+        const dest = `${STORE.meta.lat},${STORE.meta.lng}`;
+        const url=`https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(dest)}&travelmode=driving`;
+        window.open(url,'_blank');
+        bot(`เปิดแอปนำทางแล้ว <a class="underline" target="_blank" href="${url}">คลิกที่นี่</a> หากไม่ขึ้น`);
+      }, _=> bot('ไม่สามารถอ่านตำแหน่งได้ โปรดอนุญาตการระบุตำแหน่งแล้วลองใหม่'),
+      { enableHighAccuracy:true, timeout:10000, maximumAge:0 });
+      return 'opening_maps';
+    }
+
+    // ===== Core logic =====
+    function doAskMenu(){
+      let needBudget = (CTX.slots.budget==null) && shouldAskBudget();
+      if (needBudget){ METRICS.ok++; return 'ต้องการงบไม่เกินเท่าไรครับ/ค่ะ?'; }
+      CTX.filtered = findMenu(CTX.slots);
+      CTX.page=0;
+
+      const page = pageItems(CTX.filtered, 0);
+      if (!page.length){
+        let reason = '';
+        if (CTX.slots.category==='ของหวาน' && CTX.slots.taste==='เผ็ด'){
+          reason = 'หมวดของหวานไม่มีเมนูรส "เผ็ด" ครับ/ค่ะ';
+        } else if (CTX.slots.taste){
+          const cheap = cheapestFor({taste:CTX.slots.taste, category:CTX.slots.category, veg:CTX.slots.veg});
+          if (cheap && CTX.slots.budget!=null && CTX.slots.budget < cheap.price){
+            reason = `ไม่มีเมนูรสที่ต้องการในงบนี้ (เริ่มที่ ${cheap.price} บาท: ${cheap.name})`;
+          }
+        }
+        METRICS.ok++; 
+        return suggestAlternatives(reason);
+      }
+
+      const prefix = [
+        (CTX.slots.budget!=null? `งบ ≤ ${CTX.slots.budget} บาท<br>`:''),
+        (CTX.slots.taste? `ความต้องการ: ${CTX.slots.taste}<br>`:''),
+        (CTX.slots.category? `ประเภท: ${CTX.slots.category}<br>`:''),
+        (CTX.slots.veg===true? `มังสวิรัติ: ใช่<br>`:''),
+        (CTX.slots.veg===false? `มังสวิรัติ: ไม่<br>`:'')
+      ].join('');
+      METRICS.ok++;
+      return formatMenu(page, prefix);
+    }
+
+    function route(input){
+      METRICS.total++;
+      const raw = input||'';
+      const norm = normalize(raw);
+
+      // --- Quick dish Q&A ---
+      // "มี X ไหม"
+      let mExist = norm.match(/มี\s*([^?]+?)\s*(ไหม|มั้ย|หรือเปล่า|ปะ)\s*$/);
+      if (mExist){
+        const q = mExist[1].trim();
+        if (/(ของคาว|ของหวาน|เครื่องดื่ม)/.test(q)){
+          const parsed = parseSlots(q);
+          applyTTL(parsed);
+          METRICS.ok++; return doAskMenu();
+        }
+        const dish = findItemByName(q);
+        METRICS.ok++;
+        if (dish) return `มีครับ/ค่ะ: <b>${dish.name}</b> – ${dish.price} บาท • ระดับเผ็ด: ${dish.spicy}${dish.veg? ' • มังสวิรัติ':''}`;
+        return 'ยังไม่พบเมนูชื่อนั้นในรายการครับ/ค่ะ';
+      }
+      // "X เผ็ดไหม"
+      let mSpicy = norm.match(/(.+?)(นี่|นี้)?\s*เผ็ด(ไหม|มั้ย)\s*$/);
+      if (mSpicy){
+        const q = mSpicy[1].trim();
+        const dish = findItemByName(q);
+        METRICS.ok++;
+        if (dish) return `${dish.name} • ระดับเผ็ด: <b>${dish.spicy}</b> • ราคา ${dish.price} บาท`;
+        return 'ยังไม่พบเมนูนั้นในรายการครับ/ค่ะ';
+      }
+
+      const intent = matchIntent(norm);
+      const parsed = parseSlots(norm);
+      applyTTL(parsed);
+
+      if (['greet','help','ask_hours','ask_location','ask_contact','ask_promo','navigate','explain','clear_filters','clear_budget','show_all','ack','ask_name','ask_booking'].includes(intent)){
+        METRICS.ok++; CTX.last_intent=intent; return RESP[intent]();
+      }
+      if (intent==='recommend'){ METRICS.ok++; CTX.last_intent='recommend'; return doRecommend(norm); }
+      if (intent==='more'){
+        if (CTX.filtered.length){
+          const next = pageItems(CTX.filtered, ++CTX.page);
+          if (next.length){ METRICS.ok++; CTX.last_intent='ask_menu'; return formatMenu(next, `หน้า ${CTX.page+1}:<br>`); }
+          METRICS.ok++; return suggestAlternatives();
+        }
+        METRICS.fallback++; return 'ยังไม่มีรายการก่อนหน้าให้เลื่อนครับ/ค่ะ ลองพิมพ์ "เมนูทั้งหมด" หรือ "เมนูแนะนำ" ก่อน';
+      }
+      if (intent==='ask_menu' || intent==='ask_price'){ CTX.last_intent='ask_menu'; return doAskMenu(); }
+
+      METRICS.fallback++;
+      return 'ขอโทษครับ ฉันยังไม่แน่ใจ ลองพิมพ์: “ช่วยด้วย”, “เมนูแนะนำ/แนะนำหน่อย”, “เมนูทั้งหมด”, “แผนที่/พิกัด”, “เมนูเผ็ดๆ”, “งบไม่เกิน 80”, หรือ “veg”';
+    }
+
+    // ===== UI wiring =====
+    const inputEl=document.getElementById('input');
+    const sendBtn=document.getElementById('send');
+    const quickBar=document.getElementById('quickbar');
+
+    function sendText(text){ if(!text) return; user(text); const res=route(text); bot(res); updateMetrics(); }
+    sendBtn.addEventListener('click',()=>{ const t=inputEl.value.trim(); inputEl.value=''; sendText(t); });
+    inputEl.addEventListener('keydown',e=>{
+      if ((e.ctrlKey||e.metaKey) && e.key==='Enter') sendBtn.click();
+      if (e.key==='Enter' && !e.shiftKey){ e.preventDefault(); sendBtn.click(); }
+    });
+    document.getElementById('btnHelp').onclick=()=>sendText('help');
+    document.getElementById('btnClear').onclick=()=>{ document.getElementById('chat').innerHTML=''; CTX.last_intent=null; CTX.slots={budget:null,taste:null,category:null,veg:null,excludeCategories:[]}; CTX.ttl={budget:0,taste:0,category:0,veg:0}; CTX.filtered=[]; CTX.page=0; greet(); };
+
+    function renderQuick(){
+      const qs=[
+        {label:'เมนูแนะนำ', text:'เมนูแนะนำ'},
+        {label:'แนะนำหน่อย', text:'แนะนำหน่อย'},
+        {label:'เมนูทั้งหมด', text:'เมนูทั้งหมด'},
+        {label:'ของคาว', text:'มีของคาวไหม'},
+        {label:'ของหวาน 60', text:'ของหวาน หกสิบ'},
+        {label:'ส้มตำมีไหม', text:'มีส้มตำไหม'},
+        {label:'ผัดไทยเผ็ดไหม', text:'ผัดไทยกุ้งสดเผ็ดไหม'},
+        {label:'ล้างงบ', text:'ล้างงบ'}
+      ];
+      const quickBar=document.getElementById('quickbar');
+      quickBar.innerHTML='';
+      qs.forEach(q=>{ const b=document.createElement('button'); b.className='text-xs px-3 py-1.5 rounded-full bg-slate-100 hover:bg-slate-200'; b.textContent=q.label; b.onclick=()=>sendText(q.text); quickBar.appendChild(b); });
+    }
+
+    function renderStoreInfo(){
+      const el=document.getElementById('storeInfo');
+      el.innerHTML = `
+        <div><b>ชื่อร้าน:</b> ${STORE.meta.name}</div>
+        <div><b>เวลาทำการ:</b> ${STORE.meta.hours} (Open daily 10:00–20:00)</div>
+        <div><b>โทร:</b> ${STORE.meta.phone}</div>
+        <div><b>ที่อยู่:</b> ${STORE.meta.address}</div>
+        <div><b>พิกัด:</b> ${STORE.meta.lat.toFixed(4)}, ${STORE.meta.lng.toFixed(4)}</div>
+        <div><b>โปรโมชัน:</b><br>${STORE.promos.map(p=>`• ${p.title} – ${p.desc}`).join('<br>')}</div>
+      `;
+      document.getElementById('mapsLink').href=STORE.meta.mapsUrl;
+      document.getElementById('btnNavigate').onclick=()=>startNav();
+    }
+
+    function bot(msg){ addMsg('bot', msg); }
+    function user(msg){ addMsg('user', msg); }
+    function addMsg(role, html){
+      const wrap=document.createElement('div');
+      const isUser=role==='user';
+      wrap.className='flex '+(isUser?'justify-end':'justify-start');
+      const bubble=document.createElement('div');
+      bubble.className='max-w-[85%] rounded-2xl px-4 py-2 shadow '+(isUser?'bg-indigo-600 text-white rounded-br-md':'bg-white border border-slate-200 rounded-bl-md');
+      bubble.innerHTML=html;
+      document.getElementById('chat').appendChild(wrap).appendChild(bubble);
+      document.getElementById('chat').scrollTo({top:document.getElementById('chat').scrollHeight,behavior:'smooth'});
+    }
+
+    const METRICS={total:0,ok:0,fallback:0};
+    function updateMetrics(){
+      const cov = METRICS.total? Math.round(((METRICS.total-METRICS.fallback)/METRICS.total)*100):0;
+      document.getElementById('m_total').textContent=METRICS.total;
+      document.getElementById('m_ok').textContent=METRICS.ok;
+      document.getElementById('m_fb').textContent=METRICS.fallback;
+      document.getElementById('m_cov').textContent=cov+'%';
+    }
+
+    function greet(){ bot('สวัสดีครับ! ฉันคือผู้ช่วยร้านอาหาร 🍜 พิมพ์ "ช่วยด้วย" หรือ "help" เพื่อดูเมนูคำสั่ง'); }
+    function init(){ document.getElementById('lang').value='th'; renderQuick(); renderStoreInfo(); greet(); }
+    init();
+  </script>
+</body>
+</html>
