@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Restaurant Assistant Chatbot – Smarter v2 (TH/EN)</title>
+  <link rel="icon" href="data:," />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .nice-scrollbar::-webkit-scrollbar{width:8px;height:8px}
+    .nice-scrollbar::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:8px}
+    .nice-scrollbar{scrollbar-width:thin;scrollbar-color:#cbd5e1 transparent}
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 antialiased">
+  <div class="min-h-screen max-w-4xl mx-auto p-4 md:p-8">
+    <header class="mb-4">
+      <div class="rounded-2xl bg-gradient-to-r from-indigo-500 via-sky-500 to-cyan-400 text-white p-6 shadow-lg flex items-start justify-between gap-4">
+        <div>
+          <h1 class="text-2xl md:text-3xl font-semibold">🍜 Restaurant Assistant Chatbot – <span class="font-bold">Smarter v2</span></h1>
+          <p class="opacity-95 mt-1">Lexical (synonyms) • Syntactic (negation/constraints) • Semantic (context+slots)</p>
+          <div class="mt-3 flex flex-wrap items-center gap-2 text-sm">
+            <span class="bg-white/15 px-2.5 py-1 rounded-full">TH/EN</span>
+            <span class="bg-white/15 px-2.5 py-1 rounded-full">Context & Slot Filling</span>
+            <span class="bg-white/15 px-2.5 py-1 rounded-full">Regex + Light Semantics</span>
+          </div>
+        </div>
+        <div class="flex items-center gap-2">
+          <label for="lang" class="text-sm opacity-90">ภาษา / Language</label>
+          <select id="lang" class="text-sm rounded-lg px-2 py-1 text-slate-800 bg-white/90">
+            <option value="th">ไทย (TH)</option>
+            <option value="en">English (EN)</option>
+          </select>
+        </div>
+      </div>
+    </header>
+
+    <main class="grid md:grid-cols-3 gap-4">
+      <section class="md:col-span-2">
+        <div class="bg-white rounded-2xl shadow-lg border border-slate-200">
+          <div class="flex items-center justify-between px-4 py-3 border-b border-slate-200">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-sky-400 grid place-items-center text-white">🤖</div>
+              <div>
+                <div class="font-semibold leading-tight">บอทร้านอาหาร (ฉลาดขึ้น)</div>
+                <div class="text-xs text-slate-500">พิมพ์ “ช่วยด้วย / help” เพื่อดูเมนูลัด</div>
+              </div>
+            </div>
+            <div class="flex items-center gap-2">
+              <button id="btnClear" class="text-xs px-3 py-1.5 rounded-full bg-slate-100 hover:bg-slate-200">ล้างแชท</button>
+              <button id="btnHelp" class="text-xs px-3 py-1.5 rounded-full bg-indigo-50 text-indigo-700 hover:bg-indigo-100">เมนูช่วยเหลือ</button>
+            </div>
+          </div>
+
+          <div id="chat" class="h-[56vh] md:h-[62vh] overflow-y-auto nice-scrollbar p-4 space-y-3"></div>
+
+          <div class="border-t border-slate-200 p-3">
+            <div class="flex items-end gap-2">
+              <div class="flex-1">
+                <textarea id="input" rows="2" placeholder="ตัวอย่าง: ‘เปิดเวลาไหน’, ‘เมนูเผ็ดไม่แพง’, ‘งบไม่เกิน 100’, ‘ของหวาน’, ‘veg’, ‘นำทาง’ ..." class="w-full resize-none rounded-xl border-slate-300 focus:border-indigo-400 focus:ring-indigo-300"></textarea>
+                <div id="quickbar" class="flex flex-wrap gap-2 mt-2 text-sm"></div>
+              </div>
+              <button id="send" class="px-4 py-2 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 active:scale-[.99]">ส่ง</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <aside class="md:col-span-1 space-y-4">
+        <div class="bg-white rounded-2xl shadow-lg border border-slate-200 p-4">
+          <h2 class="font-semibold mb-2">🧪 Metrics</h2>
+          <ul class="text-sm space-y-1" id="metrics">
+            <li>คำถามทั้งหมด: <b id="m_total">0</b></li>
+            <li>ตอบสำเร็จ: <b id="m_ok">0</b></li>
+            <li>Fallback: <b id="m_fb">0</b></li>
+            <li>Coverage ≈ <b id="m_cov">0%</b></li>
+          </ul>
+        </div>
+
+        <div class="bg-white rounded-2xl shadow-lg border border-slate-200 p-4">
+          <h2 class="font-semibold mb-2">ℹ️ ข้อมูลร้าน (แก้ได้ในโค้ด)</h2>
+          <div class="text-sm leading-6" id="storeInfo"></div>
+          <div class="mt-3 flex flex-wrap gap-2">
+            <a id="mapsLink" target="_blank" class="text-xs px-3 py-1.5 rounded-full bg-slate-100 hover:bg-slate-200">เปิดแผนที่</a>
+            <button id="btnNavigate" class="text-xs px-3 py-1.5 rounded-full bg-emerald-50 text-emerald-700 hover:bg-emerald-100">นำทางจากตำแหน่งฉัน</button>
+            <button id="btnShowMenu" class="text-xs px-3 py-1.5 rounded-full bg-slate-100 hover:bg-slate-200">ดูเมนูทั้งหมด</button>
+          </div>
+        </div>
+      </aside>
+    </main>
+  </div>
+
+  <!-- Menu Modal -->
+  <div id="menuModal" class="hidden fixed inset-0 bg-black/40 backdrop-blur-sm grid place-items-center p-4">
+    <div class="max-w-2xl w_full bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
+      <div class="flex items-center justify_between px-4 py-3 border-b border-slate-200">
+        <h3 class="font-semibold">🍽️ เมนูทั้งหมด</h3>
+        <button id="closeMenu" class="text-slate-500 hover:text-slate-700">ปิด</button>
+      </div>
+      <div class="p-4 space-y-3">
+        <div class="flex items-center gap-2">
+          <input id="menuSearch" type="text" placeholder="ค้นหาเมนู เช่น ‘เผ็ด’, ‘ของหวาน’, ‘< 100’, ‘veg’" class="w-full rounded-lg border-slate-300 focus:border-indigo-400 focus:ring-indigo-300" />
+          <button id="menuSearchBtn" class="px-3 py-2 rounded-lg bg-slate-100 hover:bg-slate-200">ค้นหา</button>
+        </div>
+        <div id="menuList" class="grid sm:grid-cols-2 gap-3"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ===== Data =====
+    const STORE = {
+      meta: {
+        name: "ครัวริมทาง",
+        hours: "เปิดทุกวัน 10:00–20:00 น.",
+        phone: "081-234-5678",
+        address: "ซอย A ถนน B ติด C แขวง/เขตตัวอย่าง กรุงเทพมหานคร",
+        mapsUrl: "https://maps.google.com/?q=13.7563,100.5018",
+        lat: 13.7563, lng: 100.5018,
+      },
+      promos: [
+        { title: "ส่วนลดนักศึกษา 10%", desc: "ทุกวัน จ.-พฤ." },
+        { title: "Member Stamp 8 ฟรี 1", desc: "รับแสตมป์ทุกใบเสร็จ" },
+      ],
+      menu: [
+        { name: "ต้มยำกุ้ง", price: 120, category: "อาหาร", spicy: "เผ็ด", veg: false },
+        { name: "ผัดไทยกุ้งสด", price: 80, category: "อาหาร", spicy: "กลาง", veg: false },
+        { name: "ข้าวผัดหมู", price: 60, category: "อาหาร", spicy: "ไม่เผ็ด", veg: false },
+        { name: "ส้มตำไทย", price: 60, category: "อาหาร", spicy: "เผ็ด", veg: false },
+        { name: "แกงเขียวหวานไก่", price: 95, category: "อาหาร", spicy: "กลาง", veg: false },
+        { name: "ผัดกะเพราเต้าหู้", price: 65, category: "อาหาร", spicy: "กลาง", veg: true },
+        { name: "ไอศกรีมวานิลลา", price: 45, category: "ของหวาน", spicy: "ไม่เผ็ด", veg: true },
+        { name: "ชานมเย็น", price: 35, category: "เครื่องดื่ม", spicy: "ไม่เผ็ด", veg: true },
+        { name: "ชาเขียวเย็น", price: 35, category: "เครื่องดื่ม", spicy: "ไม่เผ็ด", veg: true },
+      ],
+    };
+
+    // ===== Lexical/Syntactic helpers =====
+    function normalize(s){ return s.toLowerCase().trim(); }
+    function parseBudget(text){
+      const map={'๐':0,'๑':1,'๒':2,'๓':3,'๔':4,'๕':5,'๖':6,'๗':7,'๘':8,'๙':9};
+      const t=text.replace(/[๐-๙]/g,d=>map[d]);
+      const m=t.match(/\d{2,4}/);
+      return m?parseInt(m[0],10):null;
+    }
+    function has(pats, t){ return pats.some(p=>p.test(t)); }
+
+    // Taste/Category/Veg parsing (with negation)
+    function parseSlots(text){
+      const t = normalize(text);
+      const slots = {};
+      // taste
+      if (/(ไม่เผ็ด|กินเผ็ดไม่ได้|เผ็ดน้อย|mild)/i.test(t)) slots.taste = 'ไม่เผ็ด';
+      else if (/(ปานกลาง|กลาง|medium)/i.test(t)) slots.taste = 'กลาง';
+      else if (/(เผ็ด|จัด|spicy|hot)/i.test(t)) slots.taste = 'เผ็ด';
+      // category
+      if (/(ของหวาน|dessert)/i.test(t)) slots.category = 'ของหวาน';
+      else if (/(เครื่องดื่ม|drink|beverage)/i.test(t)) slots.category = 'เครื่องดื่ม';
+      // veg flags
+      if (/(เจ|มังสวิ|veg|vegetarian|ไม่กินเนื้อ)/i.test(t)) slots.veg = true;
+      if (/(ไม่เอาผัก|no veg|ใส่ผักไหม|ไม่ต้องผัก)/i.test(t)) slots.veg = false;
+      // budget
+      const b = parseBudget(t); if (b!=null) slots.budget=b;
+      return slots;
+    }
+
+    // ===== Context =====
+    const CTX = { last_intent:null, slots:{ budget:null, taste:null, category:null, veg:null } };
+
+    // ===== Intent Matching (synonyms wide) =====
+    function matchIntent(text){
+      const t = normalize(text);
+      if (has([/(ช่วยด้วย|help|เมนูช่วยเหลือ)/i], t)) return 'help';
+      if (has([/(เปิด.*(เวลา|ตอนไหน)|เวลา.?เปิด|เวลาทำการ|ปิด.*(กี่โมง|ตอนไหน)|ร้าน.*(เปิด|ปิด).*เวลาไหน)/i], t)) return 'ask_hours';
+      if (has([/(อยู่ไหน|แผนที่|ที่อยู่|ทางไป|ไปยังไง|ไปร้านยังไง|ไป.*ยังไง|ไปทางไหน|เส้นทาง|map|where|address|location)/i], t)) return 'ask_location';
+      if (has([/(นำทาง|direction|navigate)/i], t)) return 'navigate';
+      if (has([/(ติดต่อ|โทร|เบอร์|contact|phone|call|number)/i], t)) return 'ask_contact';
+      if (has([/(โปร(โมชัน|โมชั่น)?|ส่วนลด|promo|promotion|discount|deal|coupon)/i], t)) return 'ask_promo';
+      if (has([/(เมนู|แนะนำเมนู|อยากกิน|อาหาร|อาหารอะไร|มีเมนูอะไร|menu|recommend|dishes)/i], t)) return 'ask_menu';
+      if (has([/(ราคา|กี่บาท|งบ|ไม่เกิน|เท่าไหร่|price|how much|budget|under)/i], t)) return 'ask_price';
+      // lightweight semantic signal → menu
+      if (/(เผ็ด|ไม่เผ็ด|ของหวาน|dessert|เครื่องดื่ม|drink|veg|vegetarian)/i.test(t) || /\d{2,4}/.test(t)) return 'ask_menu';
+      return 'unknown';
+    }
+
+    // ===== Menu filter =====
+    function findMenu({budget=null,taste=null,category=null,veg=null}){
+      let items=[...STORE.menu];
+      if (budget!=null) items=items.filter(m=>m.price<=budget);
+      if (taste){
+        if (taste==='หวาน') items=items.filter(m=>ม.category==='ของหวาน');
+        else items=items.filter(m=>m.spicy===taste);
+      }
+      if (category) items=items.filter(m=>m.category===category);
+      if (veg===true) items=items.filter(m=>m.veg);
+      if (veg===false) items=items.filter(m=>!m.veg);
+      return items;
+    }
+
+    function formatMenu(items, prefix=''){
+      if (!items.length) return 'ยังหาเมนูที่ตรงเงื่อนไขไม่เจอครับ ลองระบุ “เผ็ด/ไม่เผ็ด/กลาง”, “ของหวาน/เครื่องดื่ม”, หรือ “งบไม่เกิน 80”';
+      const top=items.slice(0,6).map(m=>`• ${m.name} – ${m.price} บาท`).join('<br>');
+      return prefix+top;
+    }
+
+    // ===== Responders =====
+    const RESP = {
+      help: ()=>'ฉันตอบได้: เวลาเปิด-ปิด, แผนที่/ที่อยู่, เมนู/ราคา (เผ็ด/ไม่เผ็ด/เจ/งบ), โปรโมชัน และนำทาง',
+      ask_hours: ()=> STORE.meta.hours,
+      ask_location: ()=> `ร้านอยู่ที่ ${STORE.meta.address}<br>แผนที่: <a class="underline" target="_blank" href="${STORE.meta.mapsUrl}">เปิดลิงก์</a><br><button onclick="startNav()" class="mt-2 text-xs px-3 py-1.5 rounded-full bg-emerald-50 text-emerald-700 hover:bg-emerald-100">นำทางจากตำแหน่งฉัน</button>`,
+      ask_contact: ()=> `ติดต่อร้านได้ที่ ${STORE.meta.phone}`,
+      ask_promo: ()=> STORE.promos.length? STORE.promos.map(p=>`• ${p.title} – ${p.desc}`).join('<br>') : 'ตอนนี้ยังไม่มีโปรโมชัน',
+      navigate: ()=> startNav(true),
+    };
+
+    // ===== Navigation =====
+    function startNav(silent){
+      if (silent===true){ setTimeout(()=>startNav(),0); return 'กำลังเปิดการนำทาง...'; }
+      if (!('geolocation' in navigator)){ bot('อุปกรณ์นี้ไม่รองรับการระบุตำแหน่ง'); return 'geolocation_not_supported'; }
+      navigator.geolocation.getCurrentPosition(pos=>{
+        const origin = `${pos.coords.latitude},${pos.coords.longitude}`;
+        const dest = `${STORE.meta.lat},${STORE.meta.lng}`;
+        const url=`https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(dest)}&travelmode=driving`;
+        window.open(url,'_blank');
+        bot(`เปิดแอปนำทางแล้ว <a class="underline" target="_blank" href="${url}">คลิกที่นี่</a> หากไม่ขึ้น`);
+      }, _=> bot('ไม่สามารถอ่านตำแหน่งได้ โปรดอนุญาตการระบุตำแหน่งแล้วลองใหม่'),
+      { enableHighAccuracy:true, timeout:10000, maximumAge:0 });
+      return 'opening_maps';
+    }
+
+    // ===== Chat UI =====
+    const chatEl=document.getElementById('chat');
+    function addMsg(role, html){
+      const wrap=document.createElement('div');
+      const isUser=role==='user';
+      wrap.className='flex '+(isUser?'justify-end':'justify-start');
+      const bubble=document.createElement('div');
+      bubble.className='max-w-[85%] rounded-2xl px-4 py-2 shadow '+(isUser?'bg-indigo-600 text-white rounded-br-md':'bg-white border border-slate-200 rounded-bl-md');
+      bubble.innerHTML=html;
+      wrap.appendChild(bubble); chatEl.appendChild(wrap);
+      chatEl.scrollTo({top:chatEl.scrollHeight,behavior:'smooth'});
+    }
+    const bot = html => addMsg('bot', html);
+    const user = html => addMsg('user', html);
+
+    const METRICS={total:0,ok:0,fallback:0};
+    function updateMetrics(){
+      const cov = METRICS.total? Math.round(((METRICS.total-METRICS.fallback)/METRICS.total)*100):0;
+      document.getElementById('m_total').textContent=METRICS.total;
+      document.getElementById('m_ok').textContent=METRICS.ok;
+      document.getElementById('m_fb').textContent=METRICS.fallback;
+      document.getElementById('m_cov').textContent=cov+'%';
+    }
+
+    function needMoreSlots(slots){
+      if (slots.category==null && slots.veg==null && slots.taste==null && slots.budget==null)
+        return 'ต้องการเมนูประเภทไหน (อาหาร/ของหวาน/เครื่องดื่ม), เผ็ดแค่ไหน, งบประมาณเท่าไร หรือเจ/มังฯ ไหม?';
+      if (slots.budget==null) return 'ต้องการงบไม่เกินเท่าไรครับ/ค่ะ?';
+      return null;
+    }
+
+    function route(input){
+      METRICS.total++;
+      const t = normalize(input);
+      // intent
+      let intent = matchIntent(t);
+
+      // update slots from input
+      const parsed = parseSlots(t);
+      for (const k of Object.keys(parsed)){
+        CTX.slots[k] = parsed[k];
+      }
+
+      if (intent==='help'){ METRICS.ok++; return RESP.help(); }
+      if (['ask_hours','ask_location','ask_contact','ask_promo','navigate'].includes(intent)){
+        METRICS.ok++; CTX.last_intent=intent; return RESP[intent]();
+      }
+
+      if (intent==='ask_menu' || intent==='ask_price' || CTX.last_intent==='ask_menu'){
+        CTX.last_intent='ask_menu';
+        const ask = needMoreSlots(CTX.slots);
+        if (ask){ METRICS.ok++; return ask; }
+        const items = findMenu(CTX.slots);
+        const prefix = [
+          (CTX.slots.budget!=null? `งบ ≤ ${CTX.slots.budget} บาท<br>`:''),
+          (CTX.slots.taste? `ความต้องการ: ${CTX.slots.taste}<br>`:''),
+          (CTX.slots.category? `ประเภท: ${CTX.slots.category}<br>`:''),
+          (CTX.slots.veg===true? `มังสวิรัติ: ใช่<br>`:''),
+          (CTX.slots.veg===false? `มังสวิรัติ: ไม่<br>`:'')
+        ].join('');
+        METRICS.ok++;
+        return formatMenu(items, prefix);
+      }
+
+      METRICS.fallback++;
+      return 'ขอโทษครับ ฉันยังไม่แน่ใจ ลองพิมพ์: “ช่วยด้วย”, “เปิดเวลาไหน”, “แผนที่”, “เมนูเผ็ดๆ”, “งบไม่เกิน 80”, “ของหวาน”, หรือ “veg”';
+    }
+
+    // ===== UI wiring =====
+    const inputEl=document.getElementById('input');
+    const sendBtn=document.getElementById('send');
+    const quickBar=document.getElementById('quickbar');
+
+    function sendText(text){ if(!text) return; user(text); const res=route(text); bot(res); updateMetrics(); }
+    sendBtn.addEventListener('click',()=>{ const t=inputEl.value.trim(); inputEl.value=''; sendText(t); });
+    inputEl.addEventListener('keydown',e=>{
+      if ((e.ctrlKey||e.metaKey) && e.key==='Enter') sendBtn.click();
+      if (e.key==='Enter' && !e.shiftKey){ e.preventDefault(); sendBtn.click(); }
+    });
+    document.getElementById('btnHelp').onclick=()=>sendText('help');
+    document.getElementById('btnClear').onclick=()=>{ chatEl.innerHTML=''; CTX.last_intent=null; CTX.slots={budget:null,taste:null,category:null,veg:null}; greet(); };
+
+    function renderQuick(){
+      const qs=[
+        {label:'ช่วยด้วย', text:'help'},
+        {label:'เวลาเปิด-ปิด', text:'ร้านเปิดตอนไหน'},
+        {label:'แผนที่', text:'แผนที่'},
+        {label:'เมนูเผ็ด', text:'อยากกินเผ็ด'},
+        {label:'งบ < 100', text:'งบไม่เกิน 100'},
+        {label:'ของหวาน', text:'ของหวาน'},
+        {label:'veg', text:'มีเมนูเจไหม'}
+      ];
+      quickBar.innerHTML='';
+      qs.forEach(q=>{ const b=document.createElement('button'); b.className='text-xs px-3 py-1.5 rounded-full bg-slate-100 hover:bg-slate-200'; b.textContent=q.label; b.onclick=()=>sendText(q.text); quickBar.appendChild(b); });
+    }
+
+    function renderStoreInfo(){
+      const el=document.getElementById('storeInfo');
+      el.innerHTML = `
+        <div><b>ชื่อร้าน:</b> ${STORE.meta.name}</div>
+        <div><b>เวลาทำการ:</b> ${STORE.meta.hours} (Open daily 10:00–20:00)</div>
+        <div><b>โทร:</b> ${STORE.meta.phone}</div>
+        <div><b>ที่อยู่:</b> ${STORE.meta.address}</div>
+        <div><b>พิกัด:</b> ${STORE.meta.lat.toFixed(4)}, ${STORE.meta.lng.toFixed(4)}</div>
+        <div><b>โปรโมชัน:</b><br>${STORE.promos.map(p=>`• ${p.title} – ${p.desc}`).join('<br>')}</div>
+      `;
+      document.getElementById('mapsLink').href=STORE.meta.mapsUrl;
+      document.getElementById('btnNavigate').onclick=()=>startNav();
+    }
+
+    function greet(){ bot('สวัสดีครับ! ฉันคือผู้ช่วยร้านอาหาร 🍜 พิมพ์ "ช่วยด้วย" หรือ "help" เพื่อดูเมนูคำสั่ง'); }
+    function init(){ document.getElementById('lang').value='th'; renderQuick(); renderStoreInfo(); greet(); }
+    init();
+  </script>
+</body>
+</html>
